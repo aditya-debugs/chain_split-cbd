@@ -6,18 +6,27 @@ import "./ExpenseManager.sol";
 contract SettlementManager is ExpenseManager {
 
     event SettlementMade(
-        uint256 groupId,
+        uint256 indexed groupId,
         address indexed payer,
         address indexed receiver,
         uint256 amount
     );
 
-    event BalanceCleared(uint256 groupId, address user);
-
+    // Validate sender owes, receiver is owed, amount doesn't exceed debt
     function settle(uint256 _groupId, address payable _receiver) public payable {
         require(msg.value > 0, "Send ETH to settle");
         require(_receiver != address(0), "Invalid receiver");
         require(_receiver != msg.sender, "Cannot settle with yourself");
+
+        int256 senderBal = balances[_groupId][msg.sender];
+        int256 receiverBal = balances[_groupId][_receiver];
+
+        require(senderBal < 0, "You don't owe anything in this group");
+        require(receiverBal > 0, "Receiver is not owed anything in this group");
+
+        // msg.value must not exceed sender's actual debt
+        uint256 debt = uint256(-senderBal);
+        require(msg.value <= debt, "Payment exceeds your debt");
 
         balances[_groupId][msg.sender] += int256(msg.value);
         balances[_groupId][_receiver] -= int256(msg.value);
@@ -44,5 +53,19 @@ contract SettlementManager is ExpenseManager {
         } else {
             return ("Settled", 0);
         }
+    }
+
+    // Returns all balances for all members in a group — used by frontend for debt graph
+    function getAllBalances(uint256 _groupId)
+        public
+        view
+        returns (address[] memory members, int256[] memory memberBalances)
+    {
+        address[] memory _members = groups[_groupId].members;
+        int256[] memory _balances = new int256[](_members.length);
+        for (uint256 i = 0; i < _members.length; i++) {
+            _balances[i] = balances[_groupId][_members[i]];
+        }
+        return (_members, _balances);
     }
 }
