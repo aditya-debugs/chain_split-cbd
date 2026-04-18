@@ -50,7 +50,7 @@ module.exports = {
   networks: {
     development: {
       host: "127.0.0.1",
-      port: 7545,          // Ganache GUI default port (use 8545 for Ganache CLI)
+      port: 8545,          // Ganache CLI default port
       network_id: "*",
     },
   },
@@ -62,6 +62,13 @@ module.exports = {
   compilers: {
     solc: {
       version: "0.8.19",
+      settings: {
+        optimizer: {
+          enabled: true,
+          runs: 200
+        },
+        viaIR: true
+      }
     }
   },
 };

@@ -8,8 +8,8 @@ contract ExpenseManager {
         string description;
         uint256 amount;
         address payer;
-        address[] participants;
         bool settled;
+        uint8 category;
     }
 
     struct Group {
@@ -27,23 +27,23 @@ contract ExpenseManager {
     mapping(uint256 => Expense) public expenses;
     mapping(uint256 => mapping(address => int256)) public balances;
 
-    event GroupCreated(uint256 groupId, string name, address admin);
-    event MemberAdded(uint256 groupId, address member);
-    event ExpenseAdded(uint256 expenseId, string description, uint256 amount, address payer);
+    event GroupCreated(uint256 indexed groupId, string name, address indexed admin);
+    event MemberAdded(uint256 indexed groupId, address indexed member);
+    event ExpenseAdded(uint256 indexed expenseId, string description, uint256 amount, address indexed payer, address[] participants, uint8 category);
 
-    function createGroup(string memory _name) public returns (uint256) {
-        groupCount++;
-        Group storage g = groups[groupCount];
-        g.id = groupCount;
+    function createGroup(string calldata _name) external returns (uint256) {
+        uint256 newGroupId = ++groupCount;
+        Group storage g = groups[newGroupId];
+        g.id = newGroupId;
         g.name = _name;
         g.admin = msg.sender;
         g.members.push(msg.sender);
 
-        emit GroupCreated(groupCount, _name, msg.sender);
-        return groupCount;
+        emit GroupCreated(newGroupId, _name, msg.sender);
+        return newGroupId;
     }
 
-    function addMember(uint256 _groupId, address _member) public {
+    function addMember(uint256 _groupId, address _member) external {
         require(groups[_groupId].admin == msg.sender, "Only admin can add members");
         require(_member != address(0), "Invalid address");
         groups[_groupId].members.push(_member);
@@ -52,45 +52,50 @@ contract ExpenseManager {
 
     function addExpense(
         uint256 _groupId,
-        string memory _description,
+        string calldata _description,
         uint256 _amount,
-        address[] memory _participants
-    ) public {
+        address[] calldata _participants,
+        uint8 _category
+    ) external {
         require(_amount > 0, "Amount must be greater than 0");
-        require(_participants.length > 0, "Need at least one participant");
+        uint256 pCount = _participants.length;
+        require(pCount > 0, "Need at least one participant");
 
-        expenseCount++;
-        Expense storage e = expenses[expenseCount];
-        e.id = expenseCount;
+        uint256 newExpenseId = ++expenseCount;
+        Expense storage e = expenses[newExpenseId];
+        e.id = newExpenseId;
         e.description = _description;
         e.amount = _amount;
         e.payer = msg.sender;
-        e.participants = _participants;
         e.settled = false;
+        e.category = _category;
 
-        groups[_groupId].expenseIds.push(expenseCount);
+        groups[_groupId].expenseIds.push(newExpenseId);
 
-        uint256 share = _amount / _participants.length;
+        uint256 share = _amount / pCount;
+        int256 iShare = int256(share);
 
-        for (uint256 i = 0; i < _participants.length; i++) {
-            if (_participants[i] != msg.sender) {
-                balances[_groupId][_participants[i]] -= int256(share);
-                balances[_groupId][msg.sender] += int256(share);
+        for (uint256 i = 0; i < pCount;) {
+            address participant = _participants[i];
+            if (participant != msg.sender) {
+                balances[_groupId][participant] -= iShare;
+                balances[_groupId][msg.sender] += iShare;
             }
+            unchecked { ++i; }
         }
 
-        emit ExpenseAdded(expenseCount, _description, _amount, msg.sender);
+        emit ExpenseAdded(newExpenseId, _description, _amount, msg.sender, _participants, _category);
     }
 
-    function getMembers(uint256 _groupId) public view returns (address[] memory) {
+    function getMembers(uint256 _groupId) external view returns (address[] memory) {
         return groups[_groupId].members;
     }
 
-    function getBalance(uint256 _groupId, address _user) public view returns (int256) {
+    function getBalance(uint256 _groupId, address _user) external view returns (int256) {
         return balances[_groupId][_user];
     }
 
-    function getGroupExpenses(uint256 _groupId) public view returns (uint256[] memory) {
+    function getGroupExpenses(uint256 _groupId) external view returns (uint256[] memory) {
         return groups[_groupId].expenseIds;
     }
 }

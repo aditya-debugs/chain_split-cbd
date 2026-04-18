@@ -4,6 +4,7 @@ import { useWriteContract, useReadContract } from "./hooks/useContract";
 import ConnectWallet from "./components/ConnectWallet";
 import Dashboard from "./pages/Dashboard";
 import GroupPage from "./pages/GroupPage";
+import { useEthPrice } from "./hooks/useEthPrice";
 
 export default function App() {
   const { signer, account, chainId, connect, disconnect, error } = useWallet();
@@ -12,6 +13,7 @@ export default function App() {
 
   // Use write contract when wallet connected, fallback to read-only
   const contract = writeContract ?? readContract;
+  const { price: ethPrice } = useEthPrice();
 
   return (
     <BrowserRouter>
@@ -43,11 +45,11 @@ export default function App() {
           <Routes>
             <Route
               path="/"
-              element={<Dashboard contract={contract} account={account} />}
+              element={<Dashboard contract={contract} account={account} ethPrice={ethPrice} />}
             />
             <Route
               path="/group/:id"
-              element={<GroupPage contract={contract} account={account} />}
+              element={<GroupPage contract={contract} account={account} ethPrice={ethPrice} />}
             />
           </Routes>
         </main>

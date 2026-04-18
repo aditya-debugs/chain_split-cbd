@@ -21,6 +21,17 @@ export function balanceLabel(weiValue) {
   return { text: `-${formatBalance(weiValue)} ETH you owe`, color: "text-red-400" };
 }
 
+export function formatUSD(weiValue, price = 3500) {
+  if (weiValue === undefined || weiValue === null) return "$0.00";
+  try {
+    const eth = parseFloat(formatEther(weiValue < 0n ? -weiValue : weiValue));
+    const usd = eth * price;
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(usd);
+  } catch {
+    return "$0.00";
+  }
+}
+
 export function toWei(ethAmount) {
   return parseEther(ethAmount.toString());
 }

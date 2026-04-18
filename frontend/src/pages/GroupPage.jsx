@@ -5,11 +5,13 @@ import AddMemberModal from "../components/AddMemberModal";
 import AddExpenseModal from "../components/AddExpenseModal";
 import SettleModal from "../components/SettleModal";
 import DebtGraph from "../components/DebtGraph";
+import ActivityFeed from "../components/ActivityFeed";
 import TxStatus from "../components/TxStatus";
-import { shortenAddress, balanceLabel } from "../utils/formatters";
+import { shortenAddress, balanceLabel, formatUSD } from "../utils/formatters";
 import { simplifyDebts, buildDebtGraph, weiToEthNumber } from "../utils/debtSimplification";
+import { getCategory } from "../constants/categories";
 
-export default function GroupPage({ contract, account }) {
+export default function GroupPage({ contract, account, ethPrice }) {
   const { id } = useParams();
   const groupId = Number(id);
   const navigate = useNavigate();
@@ -43,13 +45,14 @@ export default function GroupPage({ contract, account }) {
       const _expenses = await Promise.all(
         expenseIds.map(async (eid) => {
           const e = await contract.expenses(eid);
-          return {
-            id: Number(eid),
-            description: e.description,
-            amount: e.amount,
-            payer: e.payer,
-            settled: e.settled,
-          };
+            return {
+              id: Number(eid),
+              description: e.description,
+              amount: e.amount,
+              payer: e.payer,
+              settled: e.settled,
+              category: Number(e.category),
+            };
         })
       );
       setExpenses(_expenses);
@@ -112,9 +115,9 @@ export default function GroupPage({ contract, account }) {
   const handleAddMember = (gid, address) =>
     withTx(() => contract.addMember(gid, address)).then(() => setShowAddMember(false));
 
-  const handleAddExpense = (gid, desc, amountEth, participants) =>
+  const handleAddExpense = (gid, desc, amountEth, participants, category) =>
     withTx(() =>
-      contract.addExpense(gid, desc, parseEther(amountEth), participants)
+      contract.addExpense(gid, desc, parseEther(amountEth), participants, category)
     ).then(() => setShowAddExpense(false));
 
   const handleSettle = (gid, receiver, amountEth) =>
@@ -167,17 +170,20 @@ export default function GroupPage({ contract, account }) {
           <p className="text-sm text-gray-400">Your balance in this group</p>
           <p className={`text-2xl font-bold mt-1 ${balanceLabel(myBalance.balance).color}`}>
             {balanceLabel(myBalance.balance).text}
+            <span className="text-sm font-normal opacity-60 ml-3">
+              (~{formatUSD(myBalance.balance, ethPrice)})
+            </span>
           </p>
         </div>
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-gray-900 border border-gray-700 rounded-xl p-1 w-fit">
-        {["balances", "expenses", "simplify", "graph"].map((tab) => (
+      <div className="flex gap-1 bg-gray-900 border border-gray-700 rounded-xl p-1 w-fit overflow-x-auto">
+        {["balances", "expenses", "simplify", "graph", "activity"].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all capitalize ${
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all capitalize whitespace-nowrap ${
               activeTab === tab
                 ? "bg-orange-500 text-white"
                 : "text-gray-400 hover:text-white"
@@ -209,7 +215,10 @@ export default function GroupPage({ contract, account }) {
                       {shortenAddress(b.address)}
                       {isMe && <span className="text-orange-400 text-xs ml-2">(you)</span>}
                     </p>
-                    <p className={`text-sm mt-0.5 ${label.color}`}>{label.text}</p>
+                    <p className={`text-sm mt-0.5 ${label.color}`}>
+                      {label.text}
+                      <span className="opacity-60 ml-2">({formatUSD(b.balance, ethPrice)})</span>
+                    </p>
                   </div>
                   {!isMe && iOweThem && (
                     <button
@@ -238,15 +247,25 @@ export default function GroupPage({ contract, account }) {
             )}
             {expenses.map((e) => (
               <div key={e.id} className="px-5 py-4 flex justify-between items-center">
-                <div>
-                  <p className="text-white font-medium">{e.description}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    Paid by {shortenAddress(e.payer)}
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center text-xl">
+                    {getCategory(e.category).icon}
+                  </div>
+                  <div>
+                    <p className="text-white font-medium">{e.description}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      Paid by {shortenAddress(e.payer)} · {getCategory(e.category).label}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-orange-400 font-semibold font-mono">
+                    {parseFloat(formatEther(e.amount)).toFixed(4)} ETH
+                  </p>
+                  <p className="text-[10px] text-gray-500 font-mono">
+                    {formatUSD(e.amount, ethPrice)}
                   </p>
                 </div>
-                <span className="text-orange-400 font-semibold font-mono">
-                  {parseFloat(formatEther(e.amount)).toFixed(4)} ETH
-                </span>
               </div>
             ))}
           </div>
@@ -296,6 +315,19 @@ export default function GroupPage({ contract, account }) {
         </div>
       )}
 
+      {/* Tab: Activity */}
+      {activeTab === "activity" && (
+        <div className="bg-gray-900 border border-gray-700 rounded-2xl overflow-hidden min-h-[400px]">
+          <div className="px-5 py-4 border-b border-gray-700 bg-gray-900/50">
+            <h2 className="font-semibold text-white">Recent Activity</h2>
+            <p className="text-xs text-gray-400 mt-1">Live updates from the blockchain</p>
+          </div>
+          <div className="p-5">
+            <ActivityFeed contract={contract} groupId={groupId} />
+          </div>
+        </div>
+      )}
+
       {/* Modals */}
       {showAddMember && (
         <AddMemberModal
@@ -310,6 +342,7 @@ export default function GroupPage({ contract, account }) {
           groupId={groupId}
           members={members}
           account={account}
+          ethPrice={ethPrice}
           onClose={() => setShowAddExpense(false)}
           onSubmit={handleAddExpense}
           loading={loading}

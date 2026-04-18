@@ -13,7 +13,7 @@ contract SettlementManager is ExpenseManager {
     );
 
     // Validate sender owes, receiver is owed, amount doesn't exceed debt
-    function settle(uint256 _groupId, address payable _receiver) public payable {
+    function settle(uint256 _groupId, address payable _receiver) external payable {
         require(msg.value > 0, "Send ETH to settle");
         require(_receiver != address(0), "Invalid receiver");
         require(_receiver != msg.sender, "Cannot settle with yourself");
@@ -36,12 +36,12 @@ contract SettlementManager is ExpenseManager {
         emit SettlementMade(_groupId, msg.sender, _receiver, msg.value);
     }
 
-    function isSettled(uint256 _groupId, address _user) public view returns (bool) {
+    function isSettled(uint256 _groupId, address _user) external view returns (bool) {
         return balances[_groupId][_user] == 0;
     }
 
     function getNetBalance(uint256 _groupId, address _user)
-        public
+        external
         view
         returns (string memory status, uint256 absAmount)
     {
@@ -57,14 +57,16 @@ contract SettlementManager is ExpenseManager {
 
     // Returns all balances for all members in a group — used by frontend for debt graph
     function getAllBalances(uint256 _groupId)
-        public
+        external
         view
         returns (address[] memory members, int256[] memory memberBalances)
     {
         address[] memory _members = groups[_groupId].members;
-        int256[] memory _balances = new int256[](_members.length);
-        for (uint256 i = 0; i < _members.length; i++) {
+        uint256 len = _members.length;
+        int256[] memory _balances = new int256[](len);
+        for (uint256 i = 0; i < len;) {
             _balances[i] = balances[_groupId][_members[i]];
+            unchecked { ++i; }
         }
         return (_members, _balances);
     }

@@ -13,21 +13,28 @@ export default function Dashboard({ contract, account }) {
   const [txHash, setTxHash] = useState(null);
 
   const fetchGroups = useCallback(async () => {
-    if (!contract) return;
+    if (!contract || !account) return;
     try {
+      console.log("Fetching groups for account:", account);
       const count = await contract.groupCount();
       const total = Number(count);
+      console.log("Total groups on contract:", total);
+      
       const fetched = [];
       for (let i = 1; i <= total; i++) {
         const g = await contract.groups(i);
         const members = await contract.getMembers(i);
+        console.log(`Group #${i} members:`, members);
+        
         const isInGroup = members.some(
-          (m) => m.toLowerCase() === account?.toLowerCase()
+          (m) => m.toLowerCase() === account.toLowerCase()
         );
+        
         if (isInGroup) {
           fetched.push({ id: i, name: g.name, admin: g.admin, memberCount: members.length });
         }
       }
+      console.log("Total groups for user:", fetched.length);
       setGroups(fetched);
     } catch (err) {
       console.error("Error fetching groups:", err);
