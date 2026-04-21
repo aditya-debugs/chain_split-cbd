@@ -16,7 +16,7 @@ contract("ChainSplit - Full Test Suite", (accounts) => {
 
   // TC1 — Group creation emits event
   it("TC1: Should create a group successfully", async () => {
-    const tx = await expenseManager.createGroup("Trip to Goa", { from: admin });
+    const tx = await settlementManager.createGroup("Trip to Goa", { from: admin });
     assert.equal(
       tx.logs[0].event,
       "GroupCreated",
@@ -26,27 +26,27 @@ contract("ChainSplit - Full Test Suite", (accounts) => {
 
   // TC2 — Group counter increments
   it("TC2: Group count should be 1 after creation", async () => {
-    const count = await expenseManager.groupCount();
+    const count = await settlementManager.groupCount();
     assert.equal(count.toNumber(), 1, "Group count mismatch");
   });
 
   // TC3 — Creator auto-added as first member
   it("TC3: Admin should be added as first member automatically", async () => {
-    const members = await expenseManager.getMembers(1);
+    const members = await settlementManager.getMembers(1);
     assert.equal(members[0], admin, "Admin not set as first member");
   });
 
   // TC4 — Admin can add members
   it("TC4: Admin should be able to add a member to the group", async () => {
-    await expenseManager.addMember(1, member1, { from: admin });
-    const members = await expenseManager.getMembers(1);
+    await settlementManager.addMember(1, member1, { from: admin });
+    const members = await settlementManager.getMembers(1);
     assert.include(members, member1, "member1 was not added to the group");
   });
 
   // TC5 — Access control: only admin can add members
   it("TC5: Non-admin should NOT be able to add a member", async () => {
     try {
-      await expenseManager.addMember(1, member2, { from: member1 });
+      await settlementManager.addMember(1, member2, { from: member1 });
       assert.fail("Expected error was not thrown");
     } catch (err) {
       assert.include(err.message, "Only admin", "Wrong revert message");
@@ -56,21 +56,22 @@ contract("ChainSplit - Full Test Suite", (accounts) => {
   // TC6 — Expense is recorded correctly
   it("TC6: Should add an expense and record it", async () => {
     const amount = web3.utils.toWei("1", "ether");
-    await expenseManager.addMember(1, member2, { from: admin });
-    await expenseManager.addExpense(
+    await settlementManager.addMember(1, member2, { from: admin });
+    await settlementManager.addExpense(
       1,
       "Hotel booking",
       amount,
       [admin, member1, member2],
+      0,
       { from: admin },
     );
-    const expCount = await expenseManager.expenseCount();
+    const expCount = await settlementManager.expenseCount();
     assert.equal(expCount.toNumber(), 1, "Expense was not recorded");
   });
 
   // TC7 — Non-payer gets negative balance (they owe)
   it("TC7: member1 balance should be negative after expense (owes money)", async () => {
-    const balance = await expenseManager.getBalance(1, member1);
+    const balance = await settlementManager.getBalance(1, member1);
     // balance is returned as a signed int256 — negative values come back as large BN strings
     // A negative int256 returned via web3 will have its toString() start with '-'
     const balStr = balance.toString();
@@ -82,7 +83,7 @@ contract("ChainSplit - Full Test Suite", (accounts) => {
 
   // TC8 — Payer gets positive balance (is owed)
   it("TC8: Admin balance should be positive after expense (is owed money)", async () => {
-    const balance = await expenseManager.getBalance(1, admin);
+    const balance = await settlementManager.getBalance(1, admin);
     const balBN = web3.utils.toBN(balance.toString());
     assert.isTrue(
       balBN.gtn(0),

@@ -1,7 +1,10 @@
-// After running `truffle migrate --reset`, copy the deployed addresses here.
-// Also copy ABIs from build/contracts/*.json → the "abi" field.
+import artifact from '@contracts/SettlementManager.json'
 
-export const SETTLEMENT_MANAGER_ADDRESS = "0x2Aacd87d9eC6d947f3EC38a71892fa94E263AD9b";
+// Picks the last deployed network automatically — no manual copy-paste needed.
+const networks = artifact.networks
+const latestNetworkId = Object.keys(networks).sort((a, b) => Number(b) - Number(a))[0]
+
+export const SETTLEMENT_MANAGER_ADDRESS = networks[latestNetworkId]?.address
 
 export const SETTLEMENT_MANAGER_ABI = [
   // ExpenseManager functions (inherited)
@@ -20,9 +23,9 @@ export const SETTLEMENT_MANAGER_ABI = [
   "function isSettled(uint256 _groupId, address _user) view returns (bool)",
   "function getNetBalance(uint256 _groupId, address _user) view returns (string status, uint256 absAmount)",
   "function getAllBalances(uint256 _groupId) view returns (address[] members, int256[] memberBalances)",
-  // Activity Events (Indexed for efficient filtering)
+  // Events
   "event GroupCreated(uint256 indexed groupId, string name, address indexed admin)",
   "event MemberAdded(uint256 indexed groupId, address indexed member)",
   "event ExpenseAdded(uint256 indexed expenseId, string description, uint256 amount, address indexed payer, address[] participants, uint8 category)",
   "event SettlementMade(uint256 indexed groupId, address indexed payer, address indexed receiver, uint256 amount)",
-];
+]
